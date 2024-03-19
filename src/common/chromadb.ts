@@ -1,6 +1,8 @@
 import { ChromaClient, IncludeEnum } from 'chromadb';
 //import { Client } from '@ibm-generative-ai/node-sdk';
 import { Chroma, ChromaLibArgs } from 'langchain/vectorstores/chroma';
+import { RetrievalQAChain } from 'langchain/chains';
+import { EmbeddingMetadata } from './models';
 
 export class ChromaDB {
   client: ChromaClient;
@@ -11,10 +13,29 @@ export class ChromaDB {
     //this.bamClient = new Client({ endpoint: process.env.GENAI_API, apiKey: process.env.GENAI_KEY });
     //this.client = new ChromaClient({path: chromaUrl, auth: { provider: "basic", credentials: "admin:admin" }});
   }
-  async saveFromDocuments(collection: string, chunks: any, model: any, metadata: any) {
+  async query(collection: string, input: string, embeddings: any, metadata: any) {
+    const vectorStore = await this.getVectorStorefromExistingCollection(collection, embeddings, metadata) ;
+    const data = await vectorStore.similaritySearch(input);
+    return data;
+  }
+  async getVectorStorefromExistingCollection(collection: string, embeddings: any, metadata: any = EmbeddingMetadata.cosineSimilarity) {
+    const vectorStore = await Chroma.fromExistingCollection(embeddings, {
+      collectionName: collection,
+      url: this.chromaUrl,
+      collectionMetadata: metadata
+    });
+    return vectorStore;
+  }
+  async retrieveQAChain(collection: string, input: string, embeddings: any, model: any) {
+    const vectorStore = await this.getVectorStorefromExistingCollection(collection, embeddings);
+    const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
+    const response = await chain.invoke({query: input});
+    return response;
+  }
+  async saveFromDocuments(collection: string, chunks: any, embeddings: any, metadata: any) {
     const vectorStore = await Chroma.fromDocuments(
       chunks,
-      model,
+      embeddings,
       {
         collectionName: collection,
         url: this.chromaUrl,
@@ -41,16 +62,16 @@ export class ChromaDB {
       });
       console.log(`collection created: ${col}`);
       return col;
-    } catch(e) {
-      console.log(e);
+    } catch(err) {
+      console.log(err);
     }
   }
   async getCollection(collection: string) {
     try {
       const col = await this.client.getCollection({name: collection});
       return col;
-    } catch(e) {
-      console.log(e);
+    } catch(err) {
+      console.log(err);
     }
   }
   async getCollectionData(collection: string) {
@@ -60,16 +81,16 @@ export class ChromaDB {
         include: [IncludeEnum.Documents, IncludeEnum.Embeddings, IncludeEnum.Metadatas]
       })
       return data;
-    } catch(e) {
-      console.log(e);
+    } catch(err) {
+      console.log(err);
     }
   }
   async deleteCollection(collection: string) {
     try {
       await this.client.deleteCollection({name: collection});
       console.log(`Collection ${collection} deleted`);
-    } catch(e) {
-      console.log(e);
+    } catch(err) {
+      console.log(err);
     }
   }
 }

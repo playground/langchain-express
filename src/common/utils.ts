@@ -6,7 +6,7 @@ import { OpenAIEmbeddings } from '@langchain/openai';
 import { GenAIEmbeddings } from './genai-embeddings';
 import { ChromaClient, DefaultEmbeddingFunction } from 'chromadb';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { RetrievalQAChain } from 'langchain/chains';
+import { OpenAI } from 'langchain/llms/openai';
 import 'dotenv/config';
 import { chromaDB } from './chromadb';
 
@@ -16,7 +16,7 @@ import { TextLoader } from 'langchain/document_loaders/fs/text';
 import { CSVLoader } from 'langchain/document_loaders/fs/csv';
 import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
 import { Document } from 'langchain/document';
-import { ModelID, EmbeddingVersion } from './models';
+import { ModelID, EmbeddingVersion, EmbeddingMetadata } from './models';
 
 const jsonfile = require('jsonfile');
 const cp = require('child_process'),
@@ -67,7 +67,7 @@ export class Utils {
         const chunks = await this.chunkDocs(loader);
           console.log('here...')
         const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
-        const vectorStore = await chromaDB.saveFromDocuments('test-data', chunks, embeddings, {'hnsw:space': 'cosine'});
+        const vectorStore = await chromaDB.saveFromDocuments('test-data', chunks, embeddings, EmbeddingMetadata.cosineSimilarity);
 
         observer.next(vectorStore);
         observer.complete();  
@@ -78,6 +78,17 @@ export class Utils {
     return new Observable((observer) => {
       (async() => {
         const data = await chromaDB.getCollectionData(collection);
+        observer.next(data);
+        observer.complete();
+      })();
+    })
+  }
+  ask(collection: string, query: string) {
+    return new Observable((observer) => {
+      (async() => {
+        const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
+        const model = new OpenAI({ openAIApiKey: process.env.OPENAI_API_KEY });
+        const data = await chromaDB.retrieveQAChain(collection, query, embeddings, model);
         observer.next(data);
         observer.complete();
       })();

@@ -14,3 +14,9 @@ export const EmbeddingVersion = {
 export interface IParam {
   collectionName: string;
 }
+
+export const EmbeddingMetadata = {
+  cosineSimilarity: {'hnsw:space': 'cosine'},
+  innerProduct: {'hnsw:space': 'ip'},
+  squaredL2: {'hnsw:space': 'l2'}
+}

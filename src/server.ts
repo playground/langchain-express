@@ -88,21 +88,19 @@ export class Server {
         error: (e) => res.send({status: true, message: e})
       })
     });
+    app.get("/ask", (req, res) => {
+      this.utils.ask(req.query.collection, req.query.query)
+      .subscribe({
+        next: (data: any) => res.send({status: true, message: data}),
+        error: (e) => res.send({status: true, message: e})
+      })
+    });
     app.get("/interval", (req, res) => {
       this.utils.setTimeInterval(req.query.ms)
       res.send({status: true, message: `Interval: ${req.query.ms}`});
     });
     app.get("/log", (req, res) => {
       res.send({status: 200, timeSeries: this.utils.timeSeries});
-    });
-    app.get("/query", (req, res) => {
-      let timeSeries = {};
-      Object.keys(this.utils.timeSeries).forEach((key) => {
-        if(key == req.query.host_addr) {
-          timeSeries = this.utils.timeSeries[key];
-        }
-      })
-      res.send({status: 200, timeSeries: timeSeries});
     });
     app.get("/score", (req, res) => {
       this.setInteractive();
