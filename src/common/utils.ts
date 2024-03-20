@@ -9,6 +9,7 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { OpenAI } from 'langchain/llms/openai';
 import 'dotenv/config';
 import { chromaDB } from './chromadb';
+import { HfInference } from '@huggingface/inference';
 
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory';
 import { JSONLinesLoader, JSONLoader } from 'langchain/document_loaders/fs/json';
@@ -74,6 +75,77 @@ export class Utils {
       })();
     })
   }
+  testHuggingFace() {
+    console.log('here...', this.docPath)
+    return new Observable((observer) => {
+      (async() => {
+        await chromaDB.getCollections()
+        const loader = this.getLoader(`${this.docPath}/test`);
+        const chunks = await this.chunkDocs(loader);
+        const hf = new HfInference(process.env.HF_TOKEN);
+        console.dir(chunks)
+        //const output = await hf.featureExtraction({
+        //  model: 'sentence-transformers/all-MiniLM-L6-v2',
+        //  inputs: chunks
+        //})
+
+        //const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
+        //const vectorStore = await chromaDB.saveFromDocuments('test-data', chunks, embeddings, EmbeddingMetadata.cosineSimilarity);
+
+        observer.next('done');
+        observer.complete();  
+      })();
+    })
+  }
+  testHuggingFace2() {
+    return new Observable((observer) => {
+      (async() => {
+        const hf = new HfInference(process.env.HF_TOKEN);
+        const res1 = await hf.featureExtraction({
+          model: 'sentence-transformers/all-MiniLM-L6-v2',
+          inputs: "The Blue Whale is the heaviest animal in the world"
+        })
+        const res2 = await hf.featureExtraction({
+          model: 'sentence-transformers/all-MiniLM-L6-v2',
+          inputs: "George Orwell wrote 1984"
+        })
+        const res3 = await hf.featureExtraction({
+          model: 'sentence-transformers/all-MiniLM-L6-v2',
+          inputs: "Random stuff"
+        })
+        const text_arr = ["The Blue Whale is the heaviest animal in the world", "George Orwell wrote 1984", "Random stuff"]
+        const res_arr = [res1, res2, res3]
+        const question = await hf.featureExtraction({
+          model: 'sentence-transformers/all-MiniLM-L6-v2',
+          inputs: "What is the heaviest animal?"
+        })
+        const sims = [];
+        for (var i=0;i<res_arr.length;i++){
+          sims.push(this.dotProduct(question, res_arr[i]))
+        }
+        const max = sims.reduce((a,b) => a>b ? a : b)
+        console.log(res1, res2, res3)
+        console.log('here', max)
+        const response = text_arr[sims.indexOf(max)];
+        console.log(response)
+        observer.next(response);
+        observer.complete();  
+      })();
+    })
+  }
+  async chunkDocs(loader: DirectoryLoader) {
+    const docs = await loader.load();
+    //console.log(docs)
+    const pageContent = docs.map((doc) => doc.pageContent);
+    console.log(pageContent)
+    const textSplitter =  new RecursiveCharacterTextSplitter({
+      chunkSize: 800,
+      chunkOverlap: 180
+    })
+    const splitContent = await textSplitter.createDocuments(pageContent);
+    console.log('typeof', typeof splitContent, splitContent)
+    return splitContent;
+  }
   getCollectionData(collection: string) {
     return new Observable((observer) => {
       (async() => {
@@ -86,6 +158,22 @@ export class Utils {
   ask(collection: string, query: string) {
     return new Observable((observer) => {
       (async() => {
+        const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
+        const model = new OpenAI({ openAIApiKey: process.env.OPENAI_API_KEY });
+        const data = await chromaDB.retrieveQAChain(collection, query, embeddings, model);
+        observer.next(data);
+        observer.complete();
+      })();
+    })
+  }
+  askOpen(collection: string, query: string) {
+    return new Observable((observer) => {
+      (async() => {
+        const hf = new HfInference(process.env.HF_TOKEN);
+        const output = await hf.featureExtraction({
+          model: 'intfloat/e5-small-v2',
+          inputs: query
+        })
         const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
         const model = new OpenAI({ openAIApiKey: process.env.OPENAI_API_KEY });
         const data = await chromaDB.retrieveQAChain(collection, query, embeddings, model);
@@ -149,21 +237,38 @@ export class Utils {
       })();
     })
   }
-  async chunkDocs(loader: DirectoryLoader) {
-    const docs = await loader.load();
-    //console.log(docs)
-    const pageContent = docs.map((doc) => doc.pageContent);
-    console.log(pageContent)
-    const textSplitter =  new RecursiveCharacterTextSplitter({
-      chunkSize: 800,
-      chunkOverlap: 180
-    })
-    const splitContent = await textSplitter.createDocuments(pageContent);
-    console.log('typeof', typeof splitContent, splitContent)
-    return splitContent;
-  }
 
+  dotProduct(a: any[], b: any[]) {
+    if (a.length !== b.length) {
+      throw new Error('Both arguments must have the same length');
+    }
   
+    let result = 0;
+  
+    for (let i = 0; i < a.length; i++) {
+      result += a[i] * b[i];
+    }
+  
+    return result;
+  }
+  // Define the function to calculate cosine similarity
+  cosineSimilarity(A: any, B: any): number {
+    // Initialize the sums
+    let sumAiBi = 0, sumAiAi = 0, sumBiBi = 0;
+
+    // Iterate over the elements of vectors A and B
+    for (let i = 0; i < A.length; i++) {
+        // Calculate the sum of Ai*Bi
+        sumAiBi += A[i] * B[i];
+        // Calculate the sum of Ai*Ai
+        sumAiAi += A[i] * A[i];
+        // Calculate the sum of Bi*Bi
+        sumBiBi += B[i] * B[i];
+    }
+
+    // Calculate and return the cosine similarity
+    return 1.0 - sumAiBi / Math.sqrt(sumAiAi * sumBiBi);
+  }
   post(url: string, body: any, header = {'Content-Type': 'application/json'}) {
     return new Observable((observer) => {
       const raw = JSON.stringify(body);

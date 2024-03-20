@@ -80,6 +80,13 @@ export class Server {
         error: (e) => res.send({status: true, message: e})
       })
     });
+    app.get("/testHuggingFace", (req: express.Request, res: express.Response) => {
+      this.utils.testHuggingFace()
+      .subscribe({
+        next: (data) => res.send({status: true, message: data}),
+        error: (e) => res.send({status: true, message: e})
+      })
+    });
 
     app.get("/getCollectionData", (req: express.Request, res: express.Response) => {
       this.utils.getCollectionData(req.query.collection)
