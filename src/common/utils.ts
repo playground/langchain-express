@@ -6,10 +6,11 @@ import { OpenAIEmbeddings } from '@langchain/openai';
 import { GenAIEmbeddings } from './genai-embeddings';
 import { ChromaClient, DefaultEmbeddingFunction } from 'chromadb';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { OpenAI } from 'langchain/llms/openai';
+import { OpenAI } from '@langchain/openai';
 import 'dotenv/config';
 import { chromaDB } from './chromadb';
 import { HfInference } from '@huggingface/inference';
+//import { HuggingFaceTransformersEmbeddings } from '@langchain/community/embeddings/hf_transformers';
 
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory';
 import { JSONLinesLoader, JSONLoader } from 'langchain/document_loaders/fs/json';
@@ -26,11 +27,11 @@ exec = cp.exec;
 
 export class Utils {
   homePath = process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME'];
-  client: ChromaClient;
+  client: ChromaClient | undefined;
   chromaUrl = process.env.CHROMA_URL;
   docPath = './docs';
   state = {
-    server: null,
+    server: undefined,
     sockets: [],
   };
 
@@ -75,29 +76,24 @@ export class Utils {
       })();
     })
   }
-  testHuggingFace() {
+  testHuggingFace2() {
     console.log('here...', this.docPath)
     return new Observable((observer) => {
       (async() => {
         await chromaDB.getCollections()
         const loader = this.getLoader(`${this.docPath}/test`);
         const chunks = await this.chunkDocs(loader);
-        const hf = new HfInference(process.env.HF_TOKEN);
-        console.dir(chunks)
-        //const output = await hf.featureExtraction({
-        //  model: 'sentence-transformers/all-MiniLM-L6-v2',
-        //  inputs: chunks
-        //})
-
-        //const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
-        //const vectorStore = await chromaDB.saveFromDocuments('test-data', chunks, embeddings, EmbeddingMetadata.cosineSimilarity);
-
-        observer.next('done');
+        //const embeddings = new HuggingFaceTransformersEmbeddings({
+        //  modelName: 'Xenova/all-MiniLM-L6-v2'
+        //});
+        //const vectorStore = await chromaDB.saveFromDocuments('ikigai', chunks, embeddings, EmbeddingMetadata.innerProduct);
+        //console.log(vectorStore)
+        observer.next('');
         observer.complete();  
       })();
     })
   }
-  testHuggingFace2() {
+  testHuggingFace() {
     return new Observable((observer) => {
       (async() => {
         const hf = new HfInference(process.env.HF_TOKEN);
@@ -121,6 +117,7 @@ export class Utils {
         })
         const sims = [];
         for (var i=0;i<res_arr.length;i++){
+          // @ts-ignore
           sims.push(this.dotProduct(question, res_arr[i]))
         }
         const max = sims.reduce((a,b) => a>b ? a : b)
@@ -190,7 +187,7 @@ export class Utils {
           const docs = await loader.load();
           let text = [];
           let id = [];
-          let split = [];
+          let split: string[] = [];
           docs.forEach((doc) => {
             split = doc.pageContent.split('\n') 
             text.push()
@@ -238,7 +235,7 @@ export class Utils {
     })
   }
 
-  dotProduct(a: any[], b: any[]) {
+  dotProduct(a: number[], b: number[]) {
     if (a.length !== b.length) {
       throw new Error('Both arguments must have the same length');
     }
@@ -323,6 +320,7 @@ export class Utils {
     this.state.server = this.server.listen(this.port, () => {
       console.log(`Started on ${this.port}`);
     });
+    // @ts-ignore
     this.state.server.on('connection', (socket) => {
       //this.state.sockets.forEach((socket, index) => {
       //  if (socket.destroyed === false) {

@@ -1,6 +1,6 @@
 import { ChromaClient, IncludeEnum } from 'chromadb';
 //import { Client } from '@ibm-generative-ai/node-sdk';
-import { Chroma, ChromaLibArgs } from 'langchain/vectorstores/chroma';
+import { Chroma, ChromaLibArgs } from '@langchain/community/vectorstores/chroma';
 import { RetrievalQAChain } from 'langchain/chains';
 import { EmbeddingMetadata } from './models';
 
