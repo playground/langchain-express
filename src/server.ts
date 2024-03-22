@@ -38,41 +38,6 @@ export class Server {
       res.json(["Jeff", "JM", "Steve"]);
     });
 
-    app.post('/upload', (req: any, res: any) => {
-      try {
-        this.setInteractive();
-        if (!req.files || Object.keys(req.files).length === 0) {
-          return res.status(400).send('No files were uploaded.');
-        } else {
-          let imageFile = req.files.imageFile;
-          const mimetype = imageFile ? imageFile.mimetype : '';
-          if(mimetype.indexOf('image/') >= 0 || mimetype.indexOf('video/') >= 0) {
-            // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
-            console.log('type: ', imageFile, imageFile.mimetype)
-            let uploadPath = process.cwd() + `/public/images/image.png`;
-            if(mimetype.indexOf('video/') >= 0) {
-              let ext = imageFile.name.match(/\.([^.]*?)$/);
-              uploadPath = process.cwd() + `/public/video/video${ext[0]}`;
-            }
-            
-            // Use the mv() method to place the file somewhere on your server
-            console.log(uploadPath, process.cwd())
-            imageFile.mv(uploadPath, function(err) {
-              if (err)
-                return res.status(500).send(err);
-        
-              res.send({status: true, message: 'File uploaded!'});
-            });
-          } else {
-            res.send({status: true, message: 'Only image and video files are accepted.'});
-          }
-        }  
-      } catch(err) {
-        console.log(err)
-        res.status(500).send(err);
-      }
-    });
-
     app.get("/test", (req: express.Request, res: express.Response) => {
       this.utils.test()
       .subscribe({
@@ -126,7 +91,45 @@ export class Server {
       this.utils.$model.next({name: 'model', model: req.query.model, assetType: req.query.assetType});
       res.send({status: true, message: `Model: ${req.query.model}`});
     });
-  
+    app.post('/upload', (req: any, res: any) => {
+      try {
+        const count = req.files.upload ? req.files.upload.length : 0;
+        if (count == 0) {
+          return res.status(400).send('No files were uploaded.');
+        } else {
+          req.files.upload.forEach((file: any) => {
+            const mimetype = file ? file.mimetype : '';
+            const regex = new RegExp(/[^\s]+(.*?).(jpg|jpeg|png|gif|JPG|JPEG|PNG|GIF|pdf|cvs|json|txt)$/)
+            console.log('type: ', file.mimetype)
+            if(regex.test(mimetype)) {
+              let uploadPath = `${this.utils.imagePath}/${file.name}`;
+              if(mimetype.indexOf('video/') >= 0) {
+                let ext = file.name.match(/\.([^.]*?)$/);
+                uploadPath = `${this.utils.videoPath}/${file.name}`;
+              } else {
+                uploadPath = `${this.utils.docPath}/${file.name}`
+              }
+              
+              // Use the mv() method to place the file somewhere on your server
+              console.log(uploadPath, process.cwd())
+              file.mv(uploadPath, function(err) {
+                if (err) {
+                  return res.status(500).send(err);                  
+                }
+                const msg = count > 1 ? `${count} files uploaded!` : `${count} file uploaded!`
+                res.send({status: true, message: msg});
+              });
+            } else {
+              res.send({status: true, message: `Only these file types jpg|jpeg|png|gif|JPG|JPEG|PNG|GIF|pdf|cvs|json|txt are accepted.`});
+            }              
+          });
+          let file = req.files.file;
+        }  
+      } catch(err) {
+        res.status(500).send(err);
+      }
+    });
+    
     console.log('create server...')
     const server = http.createServer(app);
     //const server = http.createServer({
