@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@huggingface/inference": "^2.6.6",
-    "@ibm-generative-ai/node-sdk": "^2.0.1",
+    "@ibm-generative-ai/node-sdk": "^2.0.4",
     "@langchain/community": "^0.0.41",
     "@langchain/openai": "^0.0.22",
     "@xenova/transformers": "^2.16.1",
@@ -26,7 +26,7 @@
     "express": "^4.18.3",
     "express-fileupload": "^1.4.3",
     "jsonfile": "^6.1.0",
-    "langchain": "^0.1.26",
+    "langchain": "^0.1.28",
     "rxjs": "^7.8.1",
     "ws": "^8.16.0"
   },

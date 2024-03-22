@@ -4,7 +4,8 @@ export const ModelID = {
   'slate.125m.english.rtrvr': 'ibm/slate.125m.english.rtrvr',
   'all-minilm-l6-v2': 'sentence-transformers/all-minilm-l6-v2',
   'bge-large-en-v1.5': 'baai/bge-large-en-v1.5',
-  'multilingual-e5-large': 'intfloat/multilingual-e5-large'
+  'multilingual-e5-large': 'intfloat/multilingual-e5-large',
+  'mixtral-8x7b-instruct-v01-q': 'ibm-mistralai/mixtral-8x7b-instruct-v01-q'
 };
 
 export const EmbeddingVersion = {

@@ -3,14 +3,14 @@ import * as http from 'http';
 import { forkJoin, Observable, Subject } from 'rxjs';
 import WebSocket from 'ws';
 import { OpenAIEmbeddings } from '@langchain/openai';
-import { GenAIEmbeddings } from './genai-embeddings';
+import { GenAI } from './genai';
 import { ChromaClient, DefaultEmbeddingFunction } from 'chromadb';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { OpenAI } from '@langchain/openai';
 import 'dotenv/config';
 import { chromaDB } from './chromadb';
 import { HfInference } from '@huggingface/inference';
-//import { HuggingFaceTransformersEmbeddings } from '@langchain/community/embeddings/hf_transformers';
+import { HuggingFaceTransformersEmbeddings } from '@langchain/community/embeddings/hf_transformers';
 
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory';
 import { JSONLinesLoader, JSONLoader } from 'langchain/document_loaders/fs/json';
@@ -19,6 +19,7 @@ import { CSVLoader } from 'langchain/document_loaders/fs/csv';
 import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
 import { Document } from 'langchain/document';
 import { ModelID, EmbeddingVersion, EmbeddingMetadata } from './models';
+import { GenAIModel } from '@ibm-generative-ai/node-sdk/langchain';
 
 const jsonfile = require('jsonfile');
 const cp = require('child_process'),
@@ -34,6 +35,7 @@ export class Utils {
     server: undefined,
     sockets: [],
   };
+  genai = new GenAI(process.env.GENAI_KEY);
 
   constructor(private server: any, private port: number) {
     this.init()
@@ -69,31 +71,32 @@ export class Utils {
         const chunks = await this.chunkDocs(loader);
           console.log('here...')
         const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
-        const vectorStore = await chromaDB.saveFromDocuments('test-data', chunks, embeddings, EmbeddingMetadata.cosineSimilarity);
+        const vectorStore = await chromaDB.saveFromDocuments('ikigai-team', chunks, embeddings, EmbeddingMetadata.cosineSimilarity);
 
         observer.next(vectorStore);
         observer.complete();  
       })();
     })
   }
-  testHuggingFace2() {
+  testHuggingFace() {
     console.log('here...', this.docPath)
     return new Observable((observer) => {
       (async() => {
         await chromaDB.getCollections()
         const loader = this.getLoader(`${this.docPath}/test`);
         const chunks = await this.chunkDocs(loader);
-        //const embeddings = new HuggingFaceTransformersEmbeddings({
-        //  modelName: 'Xenova/all-MiniLM-L6-v2'
-        //});
-        //const vectorStore = await chromaDB.saveFromDocuments('ikigai', chunks, embeddings, EmbeddingMetadata.innerProduct);
-        //console.log(vectorStore)
+        const embeddings = new HuggingFaceTransformersEmbeddings({
+          //modelName: 'sentence-transformers/all-MiniLM-L6-v2',
+          modelName: 'Xenova/all-MiniLM-L6-v2'
+        });
+        const vectorStore = await chromaDB.saveFromDocuments('ikigai', chunks, embeddings, EmbeddingMetadata.innerProduct);
+        console.log(vectorStore)
         observer.next('');
         observer.complete();  
       })();
     })
   }
-  testHuggingFace() {
+  testHuggingFace2() {
     return new Observable((observer) => {
       (async() => {
         const hf = new HfInference(process.env.HF_TOKEN);
@@ -163,16 +166,13 @@ export class Utils {
       })();
     })
   }
-  askOpen(collection: string, query: string) {
+  askHF(collection: string, query: string) {
     return new Observable((observer) => {
       (async() => {
-        const hf = new HfInference(process.env.HF_TOKEN);
-        const output = await hf.featureExtraction({
-          model: 'intfloat/e5-small-v2',
-          inputs: query
-        })
-        const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
-        const model = new OpenAI({ openAIApiKey: process.env.OPENAI_API_KEY });
+        const embeddings = new HuggingFaceTransformersEmbeddings({
+          modelName: 'Xenova/all-MiniLM-L6-v2'
+        });
+        const model = this.genai.genAIModel(ModelID['mixtral-8x7b-instruct-v01-q']);
         const data = await chromaDB.retrieveQAChain(collection, query, embeddings, model);
         observer.next(data);
         observer.complete();

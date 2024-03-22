@@ -102,6 +102,13 @@ export class Server {
         error: (e) => res.send({status: true, message: e})
       })
     });
+    app.get("/askHF", (req, res) => {
+      this.utils.askHF(req.query.collection, req.query.query)
+      .subscribe({
+        next: (data: any) => res.send({status: true, message: data}),
+        error: (e) => res.send({status: true, message: e})
+      })
+    });
     app.get("/interval", (req, res) => {
       this.utils.setTimeInterval(req.query.ms)
       res.send({status: true, message: `Interval: ${req.query.ms}`});
