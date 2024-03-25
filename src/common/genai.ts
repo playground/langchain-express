@@ -1,6 +1,6 @@
 import { Observable } from "rxjs";
 import { EmbeddingVersion, ModelID } from "./models";
-import { GenAIModel } from '@ibm-generative-ai/node-sdk/langchain';
+import { GenAIModel, GenAIChatModel } from '@ibm-generative-ai/node-sdk/langchain';
 
 export class GenAI {
   url: string;
@@ -10,6 +10,16 @@ export class GenAI {
   genAIModel(modelId: string, params = {}) {
     const model = new GenAIModel({
       modelId: modelId,
+      parameters: params,
+      configuration: {
+        apiKey: this.apiKey,
+      },
+    });
+    return model;    
+  }
+  genAIChatModel(modelId: string, params = {}) {
+    const model = new GenAIChatModel({
+      model_id: modelId,
       parameters: params,
       configuration: {
         apiKey: this.apiKey,

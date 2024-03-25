@@ -5,7 +5,8 @@ export const ModelID = {
   'all-minilm-l6-v2': 'sentence-transformers/all-minilm-l6-v2',
   'bge-large-en-v1.5': 'baai/bge-large-en-v1.5',
   'multilingual-e5-large': 'intfloat/multilingual-e5-large',
-  'mixtral-8x7b-instruct-v01-q': 'ibm-mistralai/mixtral-8x7b-instruct-v01-q'
+  mixtral_8x7b_instruct_v01_q: 'ibm-mistralai/mixtral-8x7b-instruct-v01-q',
+  llama_2_13b_chat: 'meta-llama/llama-2-13b-chat'
 };
 
 export const EmbeddingVersion = {

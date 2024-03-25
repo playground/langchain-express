@@ -20,6 +20,7 @@ import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
 import { Document } from 'langchain/document';
 import { ModelID, EmbeddingVersion, EmbeddingMetadata } from './models';
 import { GenAIModel } from '@ibm-generative-ai/node-sdk/langchain';
+import { ChainWeb } from './chains/chain-web';
 
 const jsonfile = require('jsonfile');
 const cp = require('child_process'),
@@ -180,9 +181,19 @@ export class Utils {
         const embeddings = new HuggingFaceTransformersEmbeddings({
           modelName: 'Xenova/all-MiniLM-L6-v2'
         });
-        const model = this.genai.genAIModel(ModelID['mixtral-8x7b-instruct-v01-q']);
+        const model = this.genai.genAIModel(ModelID.mixtral_8x7b_instruct_v01_q);
         const data = await chromaDB.retrieveQAChain(collection, query, embeddings, model);
         observer.next(data);
+        observer.complete();
+      })();
+    })
+  }
+  askWeb(query: string, url = '') {
+    return new Observable((observer) => {
+      (async() => {
+        const chainWeb = new ChainWeb(process.env.GENAI_KEY, ModelID.mixtral_8x7b_instruct_v01_q);
+        const response = url.length == 0 ? await chainWeb.query(query) : await chainWeb.queryWeb(url, query);
+        observer.next(response);
         observer.complete();
       })();
     })
