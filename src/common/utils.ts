@@ -18,9 +18,9 @@ import { TextLoader } from 'langchain/document_loaders/fs/text';
 import { CSVLoader } from 'langchain/document_loaders/fs/csv';
 import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
 import { Document } from 'langchain/document';
-import { ModelID, EmbeddingVersion, EmbeddingMetadata } from './models';
-import { GenAIModel } from '@ibm-generative-ai/node-sdk/langchain';
+import { ModelID, EmbeddingVersion, EmbeddingMetadata, Parameters } from './models';
 import { ChainWeb } from './chains/chain-web';
+import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 
 const jsonfile = require('jsonfile');
 const cp = require('child_process'),
@@ -191,7 +191,9 @@ export class Utils {
   askWeb(query: string, url = '') {
     return new Observable((observer) => {
       (async() => {
-        const chainWeb = new ChainWeb(process.env.GENAI_KEY, ModelID.mixtral_8x7b_instruct_v01_q);
+        let params = {};
+        params[Parameters.maxNewTokens] = 1000;
+        const chainWeb = new ChainWeb(process.env.GENAI_KEY, ModelID.mixtral_8x7b_instruct_v01_q, params);
         const response = url.length == 0 ? await chainWeb.query(query) : await chainWeb.queryWeb(url, query);
         observer.next(response);
         observer.complete();

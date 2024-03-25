@@ -22,3 +22,10 @@ export const EmbeddingMetadata = {
   innerProduct: {'hnsw:space': 'ip'},
   squaredL2: {'hnsw:space': 'l2'}
 }
+
+export const Parameters = {
+  maxNewTokens: 'max_new_tokens',
+  minNewTokens: 'min_new_tokens',
+  decodingMethod: 'decoding_method',
+  repetitionPenalty: 'repetition_penalty'
+}
