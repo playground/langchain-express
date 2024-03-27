@@ -10,6 +10,7 @@
     "start": "node dist/find-node.js $PORT",
     "checkport": "lsof -i :3000",
     "watch:deploy": "nodemon -e ts,js --watch 'src/**/*.ts' --watch 'public/js/*.js' --exec 'npm run build && npm run start'",
+    "server:background": "nohup node dist/find-node.js 2>&1 >> ~/langchain.log &",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "ljeff@us.ibm.com",
