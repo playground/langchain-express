@@ -1,8 +1,9 @@
 import { GenAIChatModel, GenAIModel } from '@ibm-generative-ai/node-sdk/langchain'
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ModelID } from '../models';
+import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { GenAI } from 'src/common/genai';
-import { } from 'langchain/agents';
+import { SerpAPI } from 'langchain/tools';
+import { Calculator } from 'langchain/tools/calculator';
+import { InitializeAgentExecutorOptions } from 'langchain/agents';
 
 export class AgentOne {
   model: GenAIChatModel;
@@ -15,7 +16,17 @@ export class AgentOne {
 
     const prompt = ChatPromptTemplate.fromMessages([
       //('system', 'Your are a helpful assistant called Max'),
-      //('human', 
+      //('human', '{input}'),
+      //new MessagesPlaceholder('agent_scratchpad'),
     ])
   }
+
+  async execute(query: string) {
+    const tools = [new Calculator(), new SerpAPI()];
+    //const executor = await initializeAgentExecutorWithOptions(tools, this.model, {
+    //  agentType: 'openai-functions',
+    //  verbose: false
+    //})
+  }
 }
+
