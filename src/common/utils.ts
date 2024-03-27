@@ -1,5 +1,5 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync } from 'fs';
-import * as http from 'http';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, rmSync, lstatSync } from 'fs';
+import * as path from 'path';
 import { forkJoin, Observable, Subject } from 'rxjs';
 import WebSocket from 'ws';
 import { OpenAIEmbeddings } from '@langchain/openai';
@@ -18,8 +18,9 @@ import { TextLoader } from 'langchain/document_loaders/fs/text';
 import { CSVLoader } from 'langchain/document_loaders/fs/csv';
 import { PDFLoader } from 'langchain/document_loaders/fs/pdf';
 import { Document } from 'langchain/document';
-import { ModelID, EmbeddingVersion, EmbeddingMetadata } from './models';
-import { GenAIModel } from '@ibm-generative-ai/node-sdk/langchain';
+import { ModelID, EmbeddingVersion, EmbeddingMetadata, Parameters, IParam } from './models';
+import { ChainWeb } from './chains/chain-web';
+import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 
 const jsonfile = require('jsonfile');
 const cp = require('child_process'),
@@ -56,9 +57,9 @@ export class Utils {
     this.initWebSocketServer();
     //this.client = new Client({ apiKey: process.env.GENAI_KEY });
   }
-  getLoader(path = this.docPath) {
-    console.log(path)
-    const loader = new DirectoryLoader(path, {
+  getLoader(filepath = this.docPath) {
+    console.log(filepath)
+    const loader = new DirectoryLoader(filepath, {
       '.json': (file) => new JSONLoader(file),
       '.txt': (file) => new TextLoader(file),
       '.csv': (file) => new CSVLoader(file),
@@ -66,6 +67,21 @@ export class Utils {
     })
     console.log('loader', loader)
     return loader;    
+  }
+  removeFiles(srcDir) {
+    return new Observable((observer) => {
+      let arg = `rm ${srcDir}`;
+      exec(arg, {maxBuffer: 1024 * 2000}, (err, stdout, stderr) => {
+        if(!err) {
+          observer.next();
+          observer.complete();
+        } else {
+          console.log(err);
+          observer.next();
+          observer.complete();
+        }
+      });
+    });    
   }
   async saveContent() {
     //const client = new ChromaClient();
@@ -79,10 +95,38 @@ export class Utils {
         const chunks = await this.chunkDocs(loader);
           console.log('here...')
         const embeddings = new OpenAIEmbeddings({openAIApiKey: process.env.OPENAI_API_KEY}); 
-        const vectorStore = await chromaDB.saveFromDocuments('ikigai-team', chunks, embeddings, EmbeddingMetadata.cosineSimilarity);
+        const vectorStore = await chromaDB.saveFromDocuments('ikigai-team', chunks, embeddings, EmbeddingMetadata.cosine);
 
         observer.next(vectorStore);
         observer.complete();  
+      })();
+    })
+  }
+  embedAlgorithm(input: string) {
+    const algor = input || 'cosine';
+    return EmbeddingMetadata[algor];
+  }
+  embedAndStore(input: IParam) {
+    console.log('here...', this.docPath)
+    return new Observable((observer) => {
+      (async() => {
+        const loader = this.getLoader(`${this.docPath}`);
+        const algor = this.embedAlgorithm(input.algorithm);
+        const chunkSize = input.chunkSize || 800;
+        const chunkOverlap = input.chunkOverlap || 100;
+        console.log(chunkSize, chunkOverlap, input.algorithm, algor)
+        const chunks = await this.chunkDocs(loader, chunkSize, chunkOverlap);
+        if(chunks.length > 0) {
+          const embeddings = new HuggingFaceTransformersEmbeddings({
+            modelName: ModelID.xenova_all_minilm_l6_v2
+          });
+          const vectorStore = await chromaDB.saveFromDocuments(input.collectionName, chunks, embeddings, algor);
+          console.log(vectorStore);
+          observer.next('');
+          observer.complete();    
+        } else {
+          observer.error('Something went wrong, files not found.');
+        }
       })();
     })
   }
@@ -97,7 +141,7 @@ export class Utils {
           //modelName: 'sentence-transformers/all-MiniLM-L6-v2',
           modelName: 'Xenova/all-MiniLM-L6-v2'
         });
-        const vectorStore = await chromaDB.saveFromDocuments('ikigai', chunks, embeddings, EmbeddingMetadata.innerProduct);
+        const vectorStore = await chromaDB.saveFromDocuments('ikigai', chunks, embeddings, EmbeddingMetadata.dotProduct);
         console.log(vectorStore)
         observer.next('');
         observer.complete();  
@@ -141,18 +185,44 @@ export class Utils {
       })();
     })
   }
-  async chunkDocs(loader: DirectoryLoader) {
+  async chunkDocs(loader: DirectoryLoader, chunkSize = 800, chunkOverlap = 100) {
     const docs = await loader.load();
     //console.log(docs)
     const pageContent = docs.map((doc) => doc.pageContent);
     console.log(pageContent)
     const textSplitter =  new RecursiveCharacterTextSplitter({
-      chunkSize: 800,
-      chunkOverlap: 180
+      chunkSize,
+      chunkOverlap
     })
     const splitContent = await textSplitter.createDocuments(pageContent);
     console.log('typeof', typeof splitContent, splitContent)
     return splitContent;
+  }
+  deleteCollection(collection: string) {
+    return new Observable((observer) => {
+      (async() => {
+        if(collection && collection.length > 0) {
+          const res = await chromaDB.deleteCollection(collection);
+          if(res) {
+            observer.next(`deleted: ${res}`);
+            observer.complete();    
+          } else {
+            observer.error(res)
+          }
+        } else {
+          observer.error('Please provide collection name to be deleted.')
+        }
+      })();
+    })
+  }
+  getCollections() {
+    return new Observable((observer) => {
+      (async() => {
+        const col = await chromaDB.getCollections();
+        observer.next(col);
+        observer.complete();
+      })();
+    })
   }
   getCollectionData(collection: string) {
     return new Observable((observer) => {
@@ -174,15 +244,31 @@ export class Utils {
       })();
     })
   }
-  askHF(collection: string, query: string) {
+  askHF(collection: string, query: string, metadata: any = EmbeddingMetadata.cosine) {
     return new Observable((observer) => {
       (async() => {
         const embeddings = new HuggingFaceTransformersEmbeddings({
           modelName: 'Xenova/all-MiniLM-L6-v2'
         });
-        const model = this.genai.genAIModel(ModelID['mixtral-8x7b-instruct-v01-q']);
-        const data = await chromaDB.retrieveQAChain(collection, query, embeddings, model);
+        let params = {};
+        params[Parameters.maxNewTokens] = 1000;
+        const model = this.genai.genAIModel(ModelID.mixtral_8x7b_instruct_v01_q, params);
+        const data = await chromaDB.retrieveQAChain(collection, query, embeddings, model, metadata);
+        console.log(data)
         observer.next(data);
+        observer.complete();
+      })();
+    })
+  }
+  askWeb(query: string, url = '') {
+    return new Observable((observer) => {
+      (async() => {
+        let params = {};
+        params[Parameters.maxNewTokens] = 1000;
+        const chainWeb = new ChainWeb(process.env.GENAI_KEY, ModelID.mixtral_8x7b_instruct_v01_q, params);
+        const response = url.length == 0 ? await chainWeb.query(query) : await chainWeb.queryWeb(url, query);
+        console.log(response)
+        observer.next(response);
         observer.complete();
       })();
     })
@@ -257,7 +343,7 @@ export class Utils {
     return result;
   }
   // Define the function to calculate cosine similarity
-  cosineSimilarity(A: any, B: any): number {
+  cosine(A: any, B: any): number {
     // Initialize the sums
     let sumAiBi = 0, sumAiAi = 0, sumBiBi = 0;
 

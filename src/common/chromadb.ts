@@ -18,7 +18,7 @@ export class ChromaDB {
     const data = await vectorStore.similaritySearch(input);
     return data;
   }
-  async getVectorStorefromExistingCollection(collection: string, embeddings: any, metadata: any = EmbeddingMetadata.cosineSimilarity) {
+  async getVectorStorefromExistingCollection(collection: string, embeddings: any, metadata: any = EmbeddingMetadata.cosine) {
     const vectorStore = await Chroma.fromExistingCollection(embeddings, {
       collectionName: collection,
       url: this.chromaUrl,
@@ -26,8 +26,8 @@ export class ChromaDB {
     });
     return vectorStore;
   }
-  async retrieveQAChain(collection: string, input: string, embeddings: any, model: any) {
-    const vectorStore = await this.getVectorStorefromExistingCollection(collection, embeddings);
+  async retrieveQAChain(collection: string, input: string, embeddings: any, model: any, metadata: any = EmbeddingMetadata.cosine) {
+    const vectorStore = await this.getVectorStorefromExistingCollection(collection, embeddings, metadata);
     const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
     const response = await chain.invoke({query: input});
     return response;
@@ -88,9 +88,12 @@ export class ChromaDB {
   async deleteCollection(collection: string) {
     try {
       await this.client.deleteCollection({name: collection});
-      console.log(`Collection ${collection} deleted`);
+      const res = `Collection ${collection} deleted`;
+      console.log(res);
+      return res;
     } catch(err) {
       console.log(err);
+      return err;
     }
   }
 }

@@ -5,13 +5,13 @@ import { readFileSync } from 'fs';
 import * as http from 'http';
 import path from 'path';
 
-import { Utils } from './common';
+import { IParam, Utils } from './common';
 
 declare const process: any;
 
 export class Server {
   app = express();
-  utils: any;
+  utils: Utils;
   constructor(private port = 3000) {
     this.initialise()
   }
@@ -22,6 +22,11 @@ export class Server {
       origin: '*'
     }));
     app.use(fileUpload());
+    // Parse URL-encoded bodies (as sent by HTML forms)
+    app.use(express.urlencoded());
+
+    // Parse JSON bodies (as sent by API clients)
+    app.use(express.json());
 
     app.use('/static', express.static('public'));
 
@@ -53,53 +58,61 @@ export class Server {
       })
     });
 
+    app.get("/getCollections", (req: express.Request, res: express.Response) => {
+      this.utils.getCollections()
+      .subscribe({
+        next: (data: any) => res.send({status: true, message: data}),
+        error: (e) => res.send({status: true, message: e})
+      })
+    });
+    app.get("/deleteCollection", (req: express.Request, res: express.Response) => {
+      this.utils.deleteCollection(req.query.collection as string)
+      .subscribe({
+        next: (data: any) => res.send({status: true, message: data}),
+        error: (e) => res.send({status: true, message: e})
+      })
+    });
     app.get("/getCollectionData", (req: express.Request, res: express.Response) => {
-      this.utils.getCollectionData(req.query.collection)
+      this.utils.getCollectionData(req.query.collection as string)
       .subscribe({
         next: (data: any) => res.send({status: true, message: data}),
         error: (e) => res.send({status: true, message: e})
       })
     });
     app.get("/ask", (req, res) => {
-      this.utils.ask(req.query.collection, req.query.query)
+      this.utils.ask(req.query.collection as string, req.query.query as string)
       .subscribe({
         next: (data: any) => res.send({status: true, message: data}),
         error: (e) => res.send({status: true, message: e})
       })
     });
     app.get("/askHF", (req, res) => {
-      this.utils.askHF(req.query.collection, req.query.query)
+      this.utils.askHF(req.query.collection as string, req.query.query as string, this.utils.embedAlgorithm(req.query.alorithm as string))
       .subscribe({
         next: (data: any) => res.send({status: true, message: data}),
         error: (e) => res.send({status: true, message: e})
       })
     });
-    app.get("/interval", (req, res) => {
-      this.utils.setTimeInterval(req.query.ms)
-      res.send({status: true, message: `Interval: ${req.query.ms}`});
-    });
-    app.get("/log", (req, res) => {
-      res.send({status: 200, timeSeries: this.utils.timeSeries});
-    });
-    app.get("/score", (req, res) => {
-      this.setInteractive();
-      this.utils.$score.next({name: 'score', score: req.query.score, assetType: req.query.assetType});
-      res.send({status: true, message: `Score: ${req.query.score}`});
-    });
-    app.get("/model", (req, res) => {
-      this.setInteractive();
-      this.utils.$model.next({name: 'model', model: req.query.model, assetType: req.query.assetType});
-      res.send({status: true, message: `Model: ${req.query.model}`});
+    app.get("/askWeb", (req, res) => {
+      this.utils.askWeb(req.query.query as string, req.query.url as string || '')
+      .subscribe({
+        next: (data: any) => res.send({status: true, message: data}),
+        error: (e) => res.send({status: true, message: e})
+      })
     });
     app.post('/upload', (req: any, res: any) => {
       try {
-        const count = req.files.upload ? req.files.upload.length : 0;
+        console.log(typeof req.files.sourceData, Array.isArray(req.files.sourceData), typeof req.body.input)
+        const input: IParam = req.body.input ? JSON.parse(req.body.input) : null;
+        const sourceData = req.files.sourceData && Array.isArray(req.files.sourceData) ? req.files.sourceData : req.files.sourceData ? [req.files.sourceData] : [];
+        const count = sourceData.length;
+        console.log(count, sourceData)
         if (count == 0) {
           return res.status(400).send('No files were uploaded.');
         } else {
-          req.files.upload.forEach((file: any) => {
+          sourceData.forEach((file: any) => {
             const mimetype = file ? file.mimetype : '';
-            const regex = new RegExp(/[^\s]+(.*?).(jpg|jpeg|png|gif|JPG|JPEG|PNG|GIF|pdf|cvs|json|txt)$/)
+            const regex = new RegExp(/[^\s]+(.*?).(jpg|jpeg|png|gif|JPG|JPEG|PNG|GIF|pdf|csv|json|txt)$/)
             console.log('type: ', file.mimetype)
             if(regex.test(mimetype)) {
               let uploadPath = `${this.utils.imagePath}/${file.name}`;
@@ -116,14 +129,43 @@ export class Server {
                 if (err) {
                   return res.status(500).send(err);                  
                 }
-                const msg = count > 1 ? `${count} files uploaded!` : `${count} file uploaded!`
-                res.send({status: true, message: msg});
               });
             } else {
-              res.send({status: true, message: `Only these file types jpg|jpeg|png|gif|JPG|JPEG|PNG|GIF|pdf|cvs|json|txt are accepted.`});
+              res.send({status: true, message: `Only these file types jpg|jpeg|png|gif|JPG|JPEG|PNG|GIF|pdf|csv|json|txt are accepted.`});
             }              
           });
-          let file = req.files.file;
+          setTimeout(() => {
+            if(input) {
+              this.utils.embedAndStore(input)
+              .subscribe({
+                next: (response) => {
+                  this.utils.removeFiles(path.join(process.cwd(), `${this.utils.docPath}/*.*`))
+                  .subscribe(() => {
+                    if(input.textQuery && input.textQuery.length > 0) {
+                      this.utils.askHF(input.collectionName, input.textQuery, this.utils.embedAlgorithm(input.algorithm))
+                      .subscribe({
+                        next: (response: any) => {
+                          console.log('response: ', input.textQuery, response)
+                          let msg = count > 1 ? {upload: `${count} files uploaded!`} : {upload: `${count} file uploaded!`}
+                          msg = Object.assign(msg, response);
+                          res.send({status: true, message: msg})
+                        },
+                        error: (e) => res.send({status: true, message: e})
+                      })  
+                    } else {
+                      const msg = count > 1 ? `${count} files uploaded!` : `${count} file uploaded!` + `\n\n${response}`
+                      res.send({status: true, message: msg});        
+                    }        
+                  })
+                },
+                error: (err) => res.send({status: false, message: err}) 
+              })
+            } else {
+              const msg = count > 1 ? `${count} files uploaded!` : `${count} file uploaded!`
+              res.send({status: true, message: msg});  
+            }
+  
+          }, 800)
         }  
       } catch(err) {
         res.status(500).send(err);
@@ -137,8 +179,5 @@ export class Server {
       //cert: readFileSync('star_liquid-prep_org.crt') 
     //}, app);
     this.utils = new Utils(server, this.port);
-  }
-  setInteractive = () => {
-    process.env.npm_config_lastinteractive = Date.now();
   }
 }

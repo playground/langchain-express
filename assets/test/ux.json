@@ -1,0 +1,20 @@
+[
+  {
+    "id": "ux1",
+    "first_name": "Will",
+    "last_name": "Chambers",
+    "email": "wnchambe@us.ibm.com",
+    "gender": "Male",
+    "title": "Senior Desinger & Team Lead",
+    "team": "UX"
+  },
+  {
+    "id": "ux2",
+    "first_name": "Clay",
+    "last_name": "Braxton",
+    "email": "cbraxton@us.ibm.com",
+    "gender": "Male",
+    "title": "Program Director",
+    "team": "UX"
+  }
+]
