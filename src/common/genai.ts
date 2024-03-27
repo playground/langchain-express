@@ -1,15 +1,36 @@
 import { Observable } from "rxjs";
 import { EmbeddingVersion, ModelID } from "./models";
+import { GenAIModel, GenAIChatModel } from '@ibm-generative-ai/node-sdk/langchain';
 
-export class GenAIEmbeddings {
+export class GenAI {
   url: string;
-  constructor(private apiKey: string, private model = ModelID['all-minilm-l6-v2']) {
+  constructor(private apiKey: string) {
     this.url = `${process.env.GENAI_API}/v2/text/embeddings?version=${EmbeddingVersion['2023-11-22']}`
   }
-  public async generate(texts: string[]): Promise<number[][]> {
+  genAIModel(modelId: string, params = {}) {
+    const model = new GenAIModel({
+      modelId: modelId,
+      parameters: params,
+      configuration: {
+        apiKey: this.apiKey,
+      },
+    });
+    return model;    
+  }
+  genAIChatModel(modelId: string, params = {}) {
+    const model = new GenAIChatModel({
+      model_id: modelId,
+      parameters: params,
+      configuration: {
+        apiKey: this.apiKey,
+      },
+    });
+    return model;    
+  }
+  public async generate(texts: string[], model: string): Promise<number[][]> {
     // do things to turn texts into embeddings with an api_key perhaps
     return new Promise((resolve, reject) => {
-      this.post(this.url, {model_id: this.model, input: texts})
+      this.post(this.url, {model_id: model, input: texts})
       .subscribe({
         next: (res: number[][]) => {
           resolve(res);
