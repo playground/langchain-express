@@ -1,12 +1,12 @@
 # Langchain Express 
 
-Explore Neo4J RAG LLM pipeline using IBM BAM `https://bam.res.ibm.com/` with custom chaings and agents for Hybrid Cloud Mesh and other purposes
+Explore Neo4J RAG LLM pipeline using IBM BAM `https://bam.res.ibm.com/` with custom chains and agents.
 
 ## Development server
 
 Run `npm run watch:deploy` for a dev server. The application will automatically reload if you change any of the source files.  
 
-To interact with Langchain Express Server, head over to `https://github.ibm.com/ljeff/mesh-genai` and clone the repo.  Run `ng serve` for a dev server.  Hit this url `http://localhost:4200/` to bring up the UI.  
+To interact with Langchain Express Server, head over to `https://github.com/playground/mesh-genai` and clone the repo.  Run `ng serve` for a dev server.  Hit this url `http://localhost:4200/` to bring up the UI.  
 
 Navigate to `Langchain JS` tab:
 ```
@@ -26,7 +26,7 @@ Try Me:
 
 To get around this error for the time being
 ```
-Error [ERR_REQUIRE_ESM]: require() of ES Module /home/ieam/langchain-express/node_modules/@xenova/transformers/src/transformers.js from /home/ieam/langchain-express/node_modules/@langchain/community/dist/embeddings/hf_transformers.cjs not supported.
+Error [ERR_REQUIRE_ESM]: require() of ES Module /home/playground/langchain-express/node_modules/@xenova/transformers/src/transformers.js from /home/playground/langchain-express/node_modules/@langchain/community/dist/embeddings/hf_transformers.cjs not supported.
 ```
 
 replace line #4 and #82 in `/node_modules/@langchain/community/dist/embeddings/hf_transformers.cjs` with the following to dynamically import "@xenova/transformers"
